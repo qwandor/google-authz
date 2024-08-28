@@ -39,7 +39,7 @@ impl fmt::Debug for User {
     }
 }
 
-impl token::Fetcher for User {
+impl token::Fetch for User {
     fn fetch(&self) -> token::ResponseFuture {
         let req = self.inner.request(&self.token_uri, &Payload {
             client_id: &self.credentials.client_id,

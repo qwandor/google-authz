@@ -13,10 +13,10 @@ use hyper::{
 use parking_lot::RwLock;
 use tracing::{info, trace};
 
-use crate::{auth, sync::RefGuard};
+use crate::sync::RefGuard;
 
 mod http;
-pub(super) mod token;
+pub mod token;
 
 mod metadata;
 mod service_account;
@@ -32,13 +32,11 @@ pub(super) struct Oauth2 {
 }
 
 impl Oauth2 {
-    pub fn new(fetcher: Box<dyn token::Fetcher>, max_retry: u8) -> Self {
-        Self {
-            inner: Arc::new(RwLock::new(Inner { state: State::NotFetched, fetcher, max_retry })),
-        }
+    pub fn new(fetch: Box<dyn token::Fetch>, max_retry: u8) -> Self {
+        Self { inner: Arc::new(RwLock::new(Inner { state: State::NotFetched, fetch, max_retry })) }
     }
 
-    pub fn poll_ready(&mut self, cx: &mut task::Context<'_>) -> Poll<auth::Result<()>> {
+    pub fn poll_ready(&mut self, cx: &mut task::Context<'_>) -> Poll<crate::Result<()>> {
         if self.inner.read().can_skip_poll_ready() {
             return Poll::Ready(Ok(()));
         }
@@ -60,7 +58,7 @@ impl fmt::Debug for Oauth2 {
 
 struct Inner {
     state: State,
-    fetcher: Box<dyn token::Fetcher>,
+    fetch: Box<dyn token::Fetch>,
     max_retry: u8,
 }
 
@@ -71,7 +69,7 @@ impl Inner {
     }
 
     #[inline]
-    fn poll_ready(&mut self, cx: &mut task::Context<'_>) -> Poll<auth::Result<()>> {
+    fn poll_ready(&mut self, cx: &mut task::Context<'_>) -> Poll<crate::Result<()>> {
         macro_rules! poll {
             ($variant:ident, $future:expr, $attempts:ident) => {
                 poll!($variant, $future, $attempts,)
@@ -90,7 +88,7 @@ impl Inner {
                             }
                             info!("an error occurred during token fetching: attempts={}, err={:?}", $attempts, err);
                             self.state = State::$variant {
-                                future: RefGuard::new(self.fetcher.fetch()),
+                                future: RefGuard::new(self.fetch.fetch()),
                                 attempts: $attempts + 1,
                                 $(
                                     $field: $field.clone(),
@@ -107,10 +105,7 @@ impl Inner {
             match self.state {
                 State::NotFetched => {
                     trace!("token is not fetched");
-                    self.state = State::Fetching {
-                        future: RefGuard::new(self.fetcher.fetch()),
-                        attempts: 1,
-                    };
+                    self.state = State::Fetching { future: RefGuard::new(self.fetch.fetch()), attempts: 1 };
                 }
                 State::Fetching { ref mut future, attempts } => poll!(Fetching, future, attempts),
                 State::Refetching { ref mut future, attempts, ref last } => {
@@ -122,7 +117,7 @@ impl Inner {
                     }
                     trace!("token will expire: expiry={:?}", current.expiry);
                     self.state = State::Refetching {
-                        future: RefGuard::new(self.fetcher.fetch()),
+                        future: RefGuard::new(self.fetch.fetch()),
                         attempts: 1,
                         last: current.clone(),
                     };
@@ -145,7 +140,7 @@ impl fmt::Debug for Inner {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Inner")
             .field("state", &self.state)
-            .field("fetcher", &self.fetcher)
+            .field("fetch", &self.fetch)
             .field("max_retry", &self.max_retry)
             .finish()
     }

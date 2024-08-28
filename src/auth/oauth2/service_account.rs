@@ -16,12 +16,7 @@ fn issued_at() -> u64 {
 
 // https://cloud.google.com/iot/docs/concepts/device-security#security_standards
 fn header(typ: impl Into<String>, key_id: impl Into<String>) -> Header {
-    Header {
-        typ: Some(typ.into()),
-        alg: Algorithm::RS256,
-        kid: Some(key_id.into()),
-        ..Default::default()
-    }
+    Header { typ: Some(typ.into()), alg: Algorithm::RS256, kid: Some(key_id.into()), ..Default::default() }
 }
 
 #[derive(serde::Serialize)]
@@ -70,18 +65,13 @@ impl fmt::Debug for ServiceAccount {
     }
 }
 
-impl token::Fetcher for ServiceAccount {
+impl token::Fetch for ServiceAccount {
     fn fetch(&self) -> token::ResponseFuture {
         const EXPIRE: u64 = 60 * 60;
 
         let iat = issued_at();
-        let claims = Claims {
-            iss: &self.client_email,
-            scope: &self.scopes,
-            aud: &self.token_uri_str,
-            iat,
-            exp: iat + EXPIRE,
-        };
+        let claims =
+            Claims { iss: &self.client_email, scope: &self.scopes, aud: &self.token_uri_str, iat, exp: iat + EXPIRE };
 
         let req = self.inner.request(&self.token_uri, &Payload {
             grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",

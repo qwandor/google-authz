@@ -3,10 +3,10 @@ use std::{convert::TryFrom as _, env, fs, future::Future, path::Path, str::FromS
 use hyper::http::uri::PathAndQuery;
 use tracing::trace;
 
-use crate::credentials::{Credentials, Error, Metadata, Result, ServiceAccount, User};
+use crate::credentials::{Credentials, Metadata, ServiceAccount, User};
 
-pub(super) fn from_api_key(key: String) -> Result<Credentials> {
-    let part = PathAndQuery::try_from(&format!("?{}", key)).map_err(Error::ApiKeyFormat)?;
+pub(super) fn from_api_key(key: String) -> crate::Result<Credentials> {
+    let part = PathAndQuery::try_from(&format!("?{}", key)).map_err(crate::Error::ApiKeyFormat)?;
     assert_eq!(part.query().unwrap_or_default(), &key);
     Ok(Credentials::ApiKey(key))
 }
@@ -17,7 +17,7 @@ pub(super) fn from_api_key(key: String) -> Result<Credentials> {
 /// - On Google Compute Engine, it fetches credentials from the metadata server.
 pub(super) fn find_default(
     scopes: &'static [&'static str],
-) -> impl Future<Output = Result<Credentials>> + 'static {
+) -> impl Future<Output = crate::Result<Credentials>> + 'static {
     async move {
         let credentials = if let Some(c) = from_env(scopes)? {
             c
@@ -26,13 +26,13 @@ pub(super) fn find_default(
         } else if let Some(c) = from_metadata(None, scopes).await? {
             c
         } else {
-            return Err(Error::CredentialsSource);
+            return Err(crate::Error::CredentialsSource);
         };
         Ok(credentials)
     }
 }
 
-pub(super) fn from_env(scopes: &'static [&'static str]) -> Result<Option<Credentials>> {
+pub(super) fn from_env(scopes: &'static [&'static str]) -> crate::Result<Option<Credentials>> {
     const NAME: &str = "GOOGLE_APPLICATION_CREDENTIALS";
     trace!("try getting `{}` from environment variable", NAME);
     match env::var(NAME) {
@@ -44,7 +44,7 @@ pub(super) fn from_env(scopes: &'static [&'static str]) -> Result<Option<Credent
     }
 }
 
-pub(super) fn from_well_known_file(scopes: &'static [&'static str]) -> Result<Option<Credentials>> {
+pub(super) fn from_well_known_file(scopes: &'static [&'static str]) -> crate::Result<Option<Credentials>> {
     let path = {
         let mut buf = {
             #[cfg(target_os = "windows")]
@@ -73,16 +73,13 @@ pub(super) fn from_well_known_file(scopes: &'static [&'static str]) -> Result<Op
     }
 }
 
-pub(super) fn from_json_file(
-    path: impl AsRef<Path>,
-    scopes: &'static [&'static str],
-) -> Result<Credentials> {
+pub(super) fn from_json_file(path: impl AsRef<Path>, scopes: &'static [&'static str]) -> crate::Result<Credentials> {
     trace!("try reading credentials file from {:?}", path.as_ref());
-    let json = fs::read_to_string(path).map_err(Error::CredentialsFile)?;
+    let json = fs::read_to_string(path).map_err(crate::Error::CredentialsFile)?;
     from_json(json.as_bytes(), scopes)
 }
 
-pub(super) fn from_json(json: &[u8], scopes: &'static [&'static str]) -> Result<Credentials> {
+pub(super) fn from_json(json: &[u8], scopes: &'static [&'static str]) -> crate::Result<Credentials> {
     trace!("try deserializing to service account credentials");
     let service_account = match serde_json::from_slice::<ServiceAccount>(json) {
         Ok(mut sa) => {
@@ -107,13 +104,13 @@ pub(super) fn from_json(json: &[u8], scopes: &'static [&'static str]) -> Result<
         }
     };
 
-    Err(Error::CredentialsFormat { user, service_account })
+    Err(crate::Error::CredentialsFormat { user, service_account })
 }
 
 pub(super) fn from_metadata(
     account: Option<String>,
     scopes: &'static [&'static str],
-) -> impl Future<Output = Result<Option<Credentials>>> + 'static {
+) -> impl Future<Output = crate::Result<Option<Credentials>>> + 'static {
     let client = gcemeta::Client::new();
     async move {
         // Check if the account is valid as path string.
@@ -126,11 +123,7 @@ pub(super) fn from_metadata(
         let on = client.on_gce().await?;
         trace!("this process is running on GCE: {}", on);
 
-        if on {
-            Ok(Some(Credentials::Metadata(Metadata { client, scopes, account }.into())))
-        } else {
-            Ok(None)
-        }
+        if on { Ok(Some(Credentials::Metadata(Metadata { client, scopes, account }.into()))) } else { Ok(None) }
     }
 }
 
@@ -167,8 +160,7 @@ mod test {
                 scopes: &[],
                 client_email: "[SERVICE-ACCOUNT-EMAIL]".into(),
                 private_key_id: "[KEY-ID]".into(),
-                private_key:
-                    "-----BEGIN PRIVATE KEY-----\n[PRIVATE-KEY]\n-----END PRIVATE KEY-----\n".into(),
+                private_key: "-----BEGIN PRIVATE KEY-----\n[PRIVATE-KEY]\n-----END PRIVATE KEY-----\n".into(),
                 token_uri: "https://accounts.google.com/o/oauth2/token".into(),
             })
         );

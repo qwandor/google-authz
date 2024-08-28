@@ -11,17 +11,17 @@ use futures_util::{
 use hyper::Request;
 
 use crate::{
-    auth::{self, Auth, Config},
+    auth::{Auth, Config},
     credentials::Credentials,
 };
 
 /// Represents an inner service error or Google authentication error.
 #[derive(thiserror::Error, Debug)]
-pub enum Error<E> {
+pub enum ServiceError<E> {
     #[error("inner service error: {0}")]
     Service(E),
-    #[error("google authentication error: {0}")]
-    GoogleAuthz(auth::Error),
+    #[error("google authentication service error: {0}")]
+    GoogleAuthz(crate::Error),
 }
 
 pub struct Builder<S> {
@@ -31,6 +31,7 @@ pub struct Builder<S> {
 }
 
 impl Builder<()> {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new<S>(service: S) -> Builder<S> {
         Builder { config: Default::default(), credentials: Default::default(), service }
     }
@@ -56,16 +57,16 @@ impl<S> Builder<S> {
         self
     }
 
-    pub async fn build<B>(self) -> GoogleAuthz<S>
+    pub async fn init<B>(self) -> crate::Result<GoogleAuthz<S>>
     where
         S: tower_service::Service<Request<B>>,
     {
         let Builder { config, credentials, service } = self;
         let credentials = match credentials {
             Some(credentials) => credentials,
-            None => Credentials::new().await,
+            None => Credentials::new().init().await?,
         };
-        GoogleAuthz { auth: Auth::new(credentials, config), service }
+        Ok(GoogleAuthz { auth: Auth::new(credentials, config), service })
     }
 }
 
@@ -75,15 +76,9 @@ pub struct GoogleAuthz<S> {
 }
 
 impl GoogleAuthz<()> {
-    pub async fn new<S, B>(service: S) -> GoogleAuthz<S>
-    where
-        S: tower_service::Service<Request<B>>,
-    {
-        Self::builder(service).build().await
-    }
-
-    pub fn builder<S>(service: S) -> Builder<S> {
-        Builder::new(service)
+    #[allow(clippy::new_ret_no_self)]
+    pub fn new<S>(svc: S) -> Builder<S> {
+        Builder::new(svc)
     }
 }
 
@@ -95,10 +90,7 @@ impl<S: Clone> Clone for GoogleAuthz<S> {
 
 impl<S: fmt::Debug> fmt::Debug for GoogleAuthz<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("GoogleAuthz")
-            .field("auth", &self.auth)
-            .field("service", &self.service)
-            .finish()
+        f.debug_struct("GoogleAuthz").field("auth", &self.auth).field("service", &self.service).finish()
     }
 }
 
@@ -107,25 +99,22 @@ where
     S: tower_service::Service<Request<B>>,
 {
     type Response = S::Response;
-    type Error = Error<S::Error>;
+    type Error = ServiceError<S::Error>;
     #[allow(clippy::type_complexity)]
-    type Future = Either<
-        MapErr<S::Future, fn(S::Error) -> Self::Error>,
-        Ready<Result<Self::Response, Self::Error>>,
-    >;
+    type Future = Either<MapErr<S::Future, fn(S::Error) -> Self::Error>, Ready<Result<Self::Response, Self::Error>>>;
 
     fn poll_ready(&mut self, cx: &mut task::Context<'_>) -> Poll<Result<(), Self::Error>> {
         match self.auth.poll_ready(cx) {
-            Poll::Ready(Ok(())) => self.service.poll_ready(cx).map_err(Error::Service),
-            Poll::Ready(Err(err)) => Poll::Ready(Err(Error::GoogleAuthz(err))),
+            Poll::Ready(Ok(())) => self.service.poll_ready(cx).map_err(ServiceError::Service),
+            Poll::Ready(Err(err)) => Poll::Ready(Err(ServiceError::GoogleAuthz(err))),
             Poll::Pending => Poll::Pending,
         }
     }
 
     fn call(&mut self, req: Request<B>) -> Self::Future {
         match self.auth.call(req) {
-            Ok(req) => Either::Left(self.service.call(req).map_err(Error::Service)),
-            Err(err) => Either::Right(future::ready(Err(Error::GoogleAuthz(err)))),
+            Ok(req) => Either::Left(self.service.call(req).map_err(ServiceError::Service)),
+            Err(err) => Either::Right(future::ready(Err(ServiceError::GoogleAuthz(err)))),
         }
     }
 }
@@ -142,7 +131,7 @@ mod test {
         #[derive(Clone)]
         struct Counter(i32);
 
-        impl tower_service::Service<Request<hyper::Body>> for Counter {
+        impl tower_service::Service<Request<hyper::body::Incoming>> for Counter {
             type Response = i32;
             type Error = i32;
             type Future = futures_util::future::BoxFuture<'static, Result<i32, i32>>;
@@ -151,15 +140,15 @@ mod test {
                 Poll::Ready(Ok(()))
             }
 
-            fn call(&mut self, _: Request<hyper::Body>) -> Self::Future {
+            fn call(&mut self, _: Request<hyper::body::Incoming>) -> Self::Future {
                 self.0 += 1;
                 let current = self.0;
                 Box::pin(async move { Ok(current) })
             }
         }
 
-        let credentials = Credentials::builder().no_credentials().build().await.unwrap();
-        let svc = GoogleAuthz::builder(Counter(0)).credentials(credentials).build();
+        let credentials = Credentials::new().no_credentials().init().await.unwrap();
+        let svc = GoogleAuthz::new(Counter(0)).credentials(credentials).init().await.unwrap();
         assert_send(&svc);
         assert_sync(&svc);
     }

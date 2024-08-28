@@ -5,11 +5,9 @@ use hyper::Request;
 use crate::Credentials;
 
 mod api_key;
-mod error;
 mod oauth2;
 
-pub use error::*;
-use oauth2::{token::Fetcher, Metadata, Oauth2, ServiceAccount, User};
+use oauth2::{token::Fetch, Metadata, Oauth2, ServiceAccount, User};
 
 #[derive(Clone, Debug)]
 pub(crate) struct Config {
@@ -37,14 +35,14 @@ enum Inner {
 
 impl From<(Credentials, &Config)> for Inner {
     fn from((credentials, config): (Credentials, &Config)) -> Self {
-        let fetcher: Box<dyn Fetcher> = match credentials {
+        let fetch: Box<dyn Fetch> = match credentials {
             Credentials::None => return Self::None,
             Credentials::ApiKey(key) => return Self::ApiKey(api_key::ApiKey::new(key)),
             Credentials::User(user) => Box::new(User::new(user)),
             Credentials::ServiceAccount(sa) => Box::new(ServiceAccount::new(sa)),
             Credentials::Metadata(meta) => Box::new(Metadata::new(meta)),
         };
-        Self::Oauth2(Oauth2::new(fetcher, config.max_retry))
+        Self::Oauth2(Oauth2::new(fetch, config.max_retry))
     }
 }
 
@@ -66,7 +64,7 @@ impl Auth {
     }
 
     #[inline]
-    pub fn poll_ready(&mut self, cx: &mut task::Context<'_>) -> Poll<Result<()>> {
+    pub fn poll_ready(&mut self, cx: &mut task::Context<'_>) -> Poll<crate::Result<()>> {
         match self.inner {
             Inner::Oauth2(ref mut oauth2) => oauth2.poll_ready(cx),
             _ => Poll::Ready(Ok(())),
@@ -74,7 +72,7 @@ impl Auth {
     }
 
     #[inline]
-    pub fn call<B>(&self, req: Request<B>) -> Result<Request<B>> {
+    pub fn call<B>(&self, req: Request<B>) -> crate::Result<Request<B>> {
         #[cfg(not(feature = "tonic"))]
         if self.enforce_https {
             check_https(req.uri().scheme_str())?;
@@ -90,9 +88,9 @@ impl Auth {
 
 #[inline]
 #[cfg(not(feature = "tonic"))]
-fn check_https(scheme: Option<&'_ str>) -> Result<()> {
+fn check_https(scheme: Option<&'_ str>) -> crate::Result<()> {
     match scheme {
         Some("https") => Ok(()),
-        _ => Err(Error::EnforceHttps(scheme.map(ToOwned::to_owned))),
+        _ => Err(crate::Error::EnforceHttps(scheme.map(ToOwned::to_owned))),
     }
 }

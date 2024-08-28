@@ -1,11 +1,6 @@
 use std::path::Path;
 
-use hyper::client::HttpConnector;
-
-mod error;
 mod impls;
-
-pub use error::*;
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
@@ -18,12 +13,9 @@ pub enum Credentials {
 }
 
 impl Credentials {
-    pub async fn new() -> Self {
-        Self::builder().build().await.expect("Credentials::new()")
-    }
-
-    pub fn builder<'a>() -> Builder<'a> {
-        Builder::default()
+    #[allow(clippy::new_ret_no_self)]
+    pub fn new<'a>() -> Builder<'a> {
+        Builder::new()
     }
 }
 
@@ -52,7 +44,7 @@ pub struct ServiceAccount {
 
 #[derive(Debug)]
 pub struct Metadata {
-    pub(crate) client: gcemeta::Client<HttpConnector>,
+    pub(crate) client: gcemeta::Client,
     pub(crate) scopes: &'static [&'static str],
     pub(crate) account: Option<String>,
 }
@@ -86,10 +78,7 @@ pub struct Builder<'a> {
 
 impl<'a> Default for Builder<'a> {
     fn default() -> Self {
-        Self {
-            scopes: &["https://www.googleapis.com/auth/cloud-platform"],
-            source: Default::default(),
-        }
+        Self { scopes: &["https://www.googleapis.com/auth/cloud-platform"], source: Default::default() }
     }
 }
 
@@ -134,16 +123,16 @@ impl<'a> Builder<'a> {
         self
     }
 
-    pub async fn build(self) -> Result<Credentials> {
+    pub async fn init(self) -> crate::Result<Credentials> {
         match self.source {
             Source::None => Ok(Credentials::None),
             Source::Default => impls::find_default(self.scopes).await,
             Source::ApiKey { key } => impls::from_api_key(key),
             Source::Json { data } => impls::from_json(data, self.scopes),
             Source::JsonFile { path } => impls::from_json_file(path, self.scopes),
-            Source::Metadata { account } => Ok(impls::from_metadata(account, self.scopes)
-                .await?
-                .expect("this process must be running on GCE")),
+            Source::Metadata { account } => {
+                Ok(impls::from_metadata(account, self.scopes).await?.expect("this process must be running on GCE"))
+            }
         }
     }
 }

@@ -1,12 +1,9 @@
 use std::{fmt, str::FromStr as _};
 
 use futures_util::TryFutureExt as _;
-use hyper::{client::HttpConnector, http::uri::PathAndQuery, Body};
+use hyper::http::uri::PathAndQuery;
 
-use crate::{
-    auth::{self, oauth2::token},
-    credentials,
-};
+use crate::{auth::oauth2::token, credentials};
 
 #[derive(serde::Serialize)]
 struct Query<'a> {
@@ -14,7 +11,7 @@ struct Query<'a> {
 }
 
 pub struct Metadata {
-    inner: gcemeta::Client<HttpConnector, Body>,
+    inner: gcemeta::Client,
     path_and_query: PathAndQuery,
 }
 
@@ -44,10 +41,10 @@ impl fmt::Debug for Metadata {
     }
 }
 
-impl token::Fetcher for Metadata {
+impl token::Fetch for Metadata {
     fn fetch(&self) -> token::ResponseFuture {
         // Already checked that this process is running on GCE.
-        let fut = self.inner.get_as(self.path_and_query.clone()).map_err(auth::Error::Gcemeta);
+        let fut = self.inner.get_as(self.path_and_query.clone()).map_err(crate::Error::Gcemeta);
         Box::pin(fut)
     }
 }
@@ -58,10 +55,7 @@ mod test {
 
     #[test]
     fn test_path_and_query() {
-        assert_eq!(
-            &path_and_query(None, &[]),
-            "/computeMetadata/v1/instance/service-accounts/default/token"
-        );
+        assert_eq!(&path_and_query(None, &[]), "/computeMetadata/v1/instance/service-accounts/default/token");
 
         assert_eq!(
             &path_and_query(None, &["https://www.googleapis.com/auth/cloud-platform"]),

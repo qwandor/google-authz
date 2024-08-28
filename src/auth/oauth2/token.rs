@@ -7,8 +7,6 @@ use std::{
 use futures_util::future::BoxFuture;
 use hyper::header::HeaderValue;
 
-use crate::auth;
-
 #[derive(Clone)]
 pub(crate) struct Token {
     pub value: HeaderValue,
@@ -34,25 +32,22 @@ pub struct Response {
 }
 
 impl TryFrom<Response> for Token {
-    type Error = auth::Error;
+    type Error = crate::Error;
 
     fn try_from(response: Response) -> Result<Self, Self::Error> {
-        if !response.token_type.is_empty()
-            && !response.access_token.is_empty()
-            && response.expires_in > 0
-        {
+        if !response.token_type.is_empty() && !response.access_token.is_empty() && response.expires_in > 0 {
             let value = format!("{} {}", response.token_type, response.access_token);
             if let Ok(value) = HeaderValue::from_str(&value) {
                 let expiry = Instant::now() + Duration::from_secs(response.expires_in);
                 return Ok(Token::new(value, expiry));
             }
         }
-        Err(auth::Error::TokenFormat(response))
+        Err(crate::Error::TokenFormat(response.token_type, response.access_token))
     }
 }
 
-pub(crate) type ResponseFuture = BoxFuture<'static, auth::Result<Response>>;
+pub(crate) type ResponseFuture = BoxFuture<'static, crate::Result<Response>>;
 
-pub(crate) trait Fetcher: fmt::Debug + Send + Sync + 'static {
+pub(crate) trait Fetch: fmt::Debug + Send + Sync + 'static {
     fn fetch(&self) -> ResponseFuture;
 }
