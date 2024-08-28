@@ -2,7 +2,7 @@
 name = "google-authz"
 version = "1.0.0-alpha.5"
 authors = ["mechiru <u9053u6d41@gmail.com>"]
-edition = "2018"
+edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "This library provides auto-renewed tokens for Google service authentication."
 repository = "https://github.com/mechiru/google-authz"
