@@ -33,15 +33,19 @@ jsonwebtoken = "9.3"
 gcemeta = "0.3"
 tower-service = "0.3"
 hyper = { version = "1.4", features = ["client", "http2"] }
-hyper-rustls = { version = "0.27", default-features = false, features = ["native-tokio", "aws-lc-rs", "http2"], optional = true }
+# https://github.com/rustls/rustls/blob/8c04dba680d19d203a7eda1951ad596f5fc2ae59/rustls/Cargo.toml#L36-L47
+# https://github.com/rustls/hyper-rustls/blob/a6a5687ff79330388ff84694b67a7eed6b4e5c51/Cargo.toml#L36-L45
+hyper-rustls = { version = "0.27", default-features = false, features = ["http2"] }
 hyper-util = { version = "0.1", features = ["http2", "client-legacy"] }
 http-body-util = "0.1"
 
 [dev-dependencies]
-tokio = { version = "1.39", features = ["macros"] }
+tokio = { version = "1.40", features = ["macros"] }
 
 [features]
-default = ["native-certs"]
+default = ["aws-lc-rs", "native-certs"]
 tonic = []
+aws-lc-rs = ["hyper-rustls/aws-lc-rs"]
+ring = ["hyper-rustls/ring"]
 native-certs = ["hyper-rustls/native-tokio"]
 webpki-roots = ["hyper-rustls/webpki-tokio"]
