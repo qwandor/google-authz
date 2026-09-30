@@ -18,9 +18,15 @@ pub(super) struct Client {
 impl Client {
     pub fn new() -> Client {
         let https = connection_builder().https_only().enable_http2().build();
-        let user_agent = concat!("rust-", env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
+        let user_agent = concat!(
+            "rust-",
+            env!("CARGO_PKG_NAME"),
+            "/",
+            env!("CARGO_PKG_VERSION")
+        );
         Self {
-            inner: hyper_util::client::legacy::Builder::new(hyper_util::rt::TokioExecutor::new()).build(https),
+            inner: hyper_util::client::legacy::Builder::new(hyper_util::rt::TokioExecutor::new())
+                .build(https),
             user_agent: HeaderValue::from_static(user_agent),
             content_type: HeaderValue::from_static("application/x-www-form-urlencoded"),
         }
@@ -38,7 +44,10 @@ impl Client {
         req.body(body).unwrap()
     }
 
-    pub fn send<T>(&self, req: Request<Full<Bytes>>) -> impl Future<Output = crate::Result<T>> + Send + 'static
+    pub fn send<T>(
+        &self,
+        req: Request<Full<Bytes>>,
+    ) -> impl Future<Output = crate::Result<T>> + Send + 'static
     where
         T: serde::de::DeserializeOwned,
     {
@@ -60,7 +69,9 @@ impl Client {
 
 #[cfg(feature = "native-certs")]
 fn connection_builder() -> HttpsConnectorBuilder<WantsSchemes> {
-    HttpsConnectorBuilder::new().with_native_roots().expect("HttpsConnectorBuilder::new().with_native_roots()")
+    HttpsConnectorBuilder::new()
+        .with_native_roots()
+        .expect("HttpsConnectorBuilder::new().with_native_roots()")
 }
 
 #[cfg(all(not(feature = "native-certs"), feature = "webpki-roots"))]

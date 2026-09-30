@@ -78,7 +78,10 @@ pub struct Builder<'a> {
 
 impl<'a> Default for Builder<'a> {
     fn default() -> Self {
-        Self { scopes: &["https://www.googleapis.com/auth/cloud-platform"], source: Default::default() }
+        Self {
+            scopes: &["https://www.googleapis.com/auth/cloud-platform"],
+            source: Default::default(),
+        }
     }
 }
 
@@ -113,7 +116,9 @@ impl<'a> Builder<'a> {
 
     #[must_use]
     pub fn metadata(mut self, account: impl Into<Option<String>>) -> Self {
-        self.source = Source::Metadata { account: account.into() };
+        self.source = Source::Metadata {
+            account: account.into(),
+        };
         self
     }
 
@@ -130,9 +135,9 @@ impl<'a> Builder<'a> {
             Source::ApiKey { key } => impls::from_api_key(key),
             Source::Json { data } => impls::from_json(data, self.scopes),
             Source::JsonFile { path } => impls::from_json_file(path, self.scopes),
-            Source::Metadata { account } => {
-                Ok(impls::from_metadata(account, self.scopes).await?.expect("this process must be running on GCE"))
-            }
+            Source::Metadata { account } => Ok(impls::from_metadata(account, self.scopes)
+                .await?
+                .expect("this process must be running on GCE")),
         }
     }
 }

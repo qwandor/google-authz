@@ -14,7 +14,10 @@ pub enum Error {
     #[error("read credentials file error: {0}")]
     CredentialsFile(std::io::Error),
     #[error("user or service account credentials format error: user={user}, service_account={service_account})")]
-    CredentialsFormat { user: serde_json::Error, service_account: serde_json::Error },
+    CredentialsFormat {
+        user: serde_json::Error,
+        service_account: serde_json::Error,
+    },
     // authentication
     #[error("http client error: {0}")]
     Http(#[from] hyper_util::client::legacy::Error),

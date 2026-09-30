@@ -44,7 +44,9 @@ pub(super) fn from_env(scopes: &'static [&'static str]) -> crate::Result<Option<
     }
 }
 
-pub(super) fn from_well_known_file(scopes: &'static [&'static str]) -> crate::Result<Option<Credentials>> {
+pub(super) fn from_well_known_file(
+    scopes: &'static [&'static str],
+) -> crate::Result<Option<Credentials>> {
     let path = {
         let mut buf = {
             #[cfg(target_os = "windows")]
@@ -73,13 +75,19 @@ pub(super) fn from_well_known_file(scopes: &'static [&'static str]) -> crate::Re
     }
 }
 
-pub(super) fn from_json_file(path: impl AsRef<Path>, scopes: &'static [&'static str]) -> crate::Result<Credentials> {
+pub(super) fn from_json_file(
+    path: impl AsRef<Path>,
+    scopes: &'static [&'static str],
+) -> crate::Result<Credentials> {
     trace!("try reading credentials file from {:?}", path.as_ref());
     let json = fs::read_to_string(path).map_err(crate::Error::CredentialsFile)?;
     from_json(json.as_bytes(), scopes)
 }
 
-pub(super) fn from_json(json: &[u8], scopes: &'static [&'static str]) -> crate::Result<Credentials> {
+pub(super) fn from_json(
+    json: &[u8],
+    scopes: &'static [&'static str],
+) -> crate::Result<Credentials> {
     trace!("try deserializing to service account credentials");
     let service_account = match serde_json::from_slice::<ServiceAccount>(json) {
         Ok(mut sa) => {
@@ -87,7 +95,10 @@ pub(super) fn from_json(json: &[u8], scopes: &'static [&'static str]) -> crate::
             return Ok(Credentials::ServiceAccount(sa));
         }
         Err(err) => {
-            trace!("failed deserialize to service account credentials: {:?}", err);
+            trace!(
+                "failed deserialize to service account credentials: {:?}",
+                err
+            );
             err
         }
     };
@@ -104,7 +115,10 @@ pub(super) fn from_json(json: &[u8], scopes: &'static [&'static str]) -> crate::
         }
     };
 
-    Err(crate::Error::CredentialsFormat { user, service_account })
+    Err(crate::Error::CredentialsFormat {
+        user,
+        service_account,
+    })
 }
 
 pub(super) fn from_metadata(
@@ -123,7 +137,18 @@ pub(super) fn from_metadata(
         let on = client.on_gce().await?;
         trace!("this process is running on GCE: {}", on);
 
-        if on { Ok(Some(Credentials::Metadata(Metadata { client, scopes, account }.into()))) } else { Ok(None) }
+        if on {
+            Ok(Some(Credentials::Metadata(
+                Metadata {
+                    client,
+                    scopes,
+                    account,
+                }
+                .into(),
+            )))
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -134,7 +159,10 @@ mod test {
     #[test]
     fn test_from_api_key() {
         assert!(from_api_key("こんにちは".into()).is_err());
-        assert_eq!(from_api_key("api-key".into()).unwrap(), Credentials::ApiKey("api-key".into()));
+        assert_eq!(
+            from_api_key("api-key".into()).unwrap(),
+            Credentials::ApiKey("api-key".into())
+        );
     }
 
     #[test]
@@ -160,7 +188,8 @@ mod test {
                 scopes: &[],
                 client_email: "[SERVICE-ACCOUNT-EMAIL]".into(),
                 private_key_id: "[KEY-ID]".into(),
-                private_key: "-----BEGIN PRIVATE KEY-----\n[PRIVATE-KEY]\n-----END PRIVATE KEY-----\n".into(),
+                private_key:
+                    "-----BEGIN PRIVATE KEY-----\n[PRIVATE-KEY]\n-----END PRIVATE KEY-----\n".into(),
                 token_uri: "https://accounts.google.com/o/oauth2/token".into(),
             })
         );

@@ -33,7 +33,13 @@ pub(super) struct Oauth2 {
 
 impl Oauth2 {
     pub fn new(fetch: Box<dyn token::Fetch>, max_retry: u8) -> Self {
-        Self { inner: Arc::new(RwLock::new(Inner { state: State::NotFetched, fetch, max_retry })) }
+        Self {
+            inner: Arc::new(RwLock::new(Inner {
+                state: State::NotFetched,
+                fetch,
+                max_retry,
+            })),
+        }
     }
 
     pub fn poll_ready(&mut self, cx: &mut task::Context<'_>) -> Poll<crate::Result<()>> {
@@ -45,14 +51,17 @@ impl Oauth2 {
 
     #[inline]
     pub fn add_header<B>(&self, mut req: Request<B>) -> Request<B> {
-        req.headers_mut().insert(AUTHORIZATION, self.inner.read().value());
+        req.headers_mut()
+            .insert(AUTHORIZATION, self.inner.read().value());
         req
     }
 }
 
 impl fmt::Debug for Oauth2 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Oauth2").field("inner", &self.inner).finish()
+        f.debug_struct("Oauth2")
+            .field("inner", &self.inner)
+            .finish()
     }
 }
 
@@ -105,10 +114,20 @@ impl Inner {
             match self.state {
                 State::NotFetched => {
                     trace!("token is not fetched");
-                    self.state = State::Fetching { future: RefGuard::new(self.fetch.fetch()), attempts: 1 };
+                    self.state = State::Fetching {
+                        future: RefGuard::new(self.fetch.fetch()),
+                        attempts: 1,
+                    };
                 }
-                State::Fetching { ref mut future, attempts } => poll!(Fetching, future, attempts),
-                State::Refetching { ref mut future, attempts, ref last } => {
+                State::Fetching {
+                    ref mut future,
+                    attempts,
+                } => poll!(Fetching, future, attempts),
+                State::Refetching {
+                    ref mut future,
+                    attempts,
+                    ref last,
+                } => {
                     poll!(Refetching, future, attempts, last)
                 }
                 State::Fetched { ref current } => {
@@ -148,9 +167,18 @@ impl fmt::Debug for Inner {
 
 enum State {
     NotFetched,
-    Fetching { future: RefGuard<token::ResponseFuture>, attempts: u8 },
-    Refetching { future: RefGuard<token::ResponseFuture>, attempts: u8, last: token::Token },
-    Fetched { current: token::Token },
+    Fetching {
+        future: RefGuard<token::ResponseFuture>,
+        attempts: u8,
+    },
+    Refetching {
+        future: RefGuard<token::ResponseFuture>,
+        attempts: u8,
+        last: token::Token,
+    },
+    Fetched {
+        current: token::Token,
+    },
 }
 
 impl fmt::Debug for State {

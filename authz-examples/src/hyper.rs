@@ -16,8 +16,13 @@ struct Client {
 
 impl Client {
     async fn try_new() -> Result<Self, Box<dyn Error>> {
-        let https = HttpsConnectorBuilder::new().with_native_roots()?.https_only().enable_http2().build();
-        let client = hyper_util::client::legacy::Builder::new(hyper_util::rt::TokioExecutor::new()).build(https);
+        let https = HttpsConnectorBuilder::new()
+            .with_native_roots()?
+            .https_only()
+            .enable_http2()
+            .build();
+        let client = hyper_util::client::legacy::Builder::new(hyper_util::rt::TokioExecutor::new())
+            .build(https);
         let inner = GoogleAuthz::new(client).init().await?;
         Ok(Self { inner })
     }
@@ -37,12 +42,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tracing_subscriber::fmt::init();
     let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
 
-    let project = env::args().nth(1).expect("cargo run --bin hyper -- <GCP_PROJECT_ID>");
+    let project = env::args()
+        .nth(1)
+        .expect("cargo run --bin hyper -- <GCP_PROJECT_ID>");
 
     let mut client = Client::try_new().await?;
     let mut req = Request::new(Either::Left(Empty::new()));
-    *req.uri_mut() =
-        format!("https://pubsub.googleapis.com/v1/projects/{project}/topics?alt=json&prettyPrint=true").parse()?;
+    *req.uri_mut() = format!(
+        "https://pubsub.googleapis.com/v1/projects/{project}/topics?alt=json&prettyPrint=true"
+    )
+    .parse()?;
     let resp = client.request(req).await?;
 
     let (parts, body) = resp.into_parts();

@@ -20,7 +20,10 @@ impl Token {
 
     pub fn expired(&self, at: Instant) -> bool {
         const EXPIRY_DELTA: Duration = Duration::from_secs(10);
-        self.expiry.checked_duration_since(at).map(|dur| dur < EXPIRY_DELTA).unwrap_or(true)
+        self.expiry
+            .checked_duration_since(at)
+            .map(|dur| dur < EXPIRY_DELTA)
+            .unwrap_or(true)
     }
 }
 
@@ -35,14 +38,20 @@ impl TryFrom<Response> for Token {
     type Error = crate::Error;
 
     fn try_from(response: Response) -> Result<Self, Self::Error> {
-        if !response.token_type.is_empty() && !response.access_token.is_empty() && response.expires_in > 0 {
+        if !response.token_type.is_empty()
+            && !response.access_token.is_empty()
+            && response.expires_in > 0
+        {
             let value = format!("{} {}", response.token_type, response.access_token);
             if let Ok(value) = HeaderValue::from_str(&value) {
                 let expiry = Instant::now() + Duration::from_secs(response.expires_in);
                 return Ok(Token::new(value, expiry));
             }
         }
-        Err(crate::Error::TokenFormat(response.token_type, response.access_token))
+        Err(crate::Error::TokenFormat(
+            response.token_type,
+            response.access_token,
+        ))
     }
 }
 

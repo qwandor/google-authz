@@ -33,7 +33,11 @@ pub struct Builder<S> {
 impl Builder<()> {
     #[allow(clippy::new_ret_no_self)]
     pub fn new<S>(service: S) -> Builder<S> {
-        Builder { config: Default::default(), credentials: Default::default(), service }
+        Builder {
+            config: Default::default(),
+            credentials: Default::default(),
+            service,
+        }
     }
 }
 
@@ -61,12 +65,19 @@ impl<S> Builder<S> {
     where
         S: tower_service::Service<Request<B>>,
     {
-        let Builder { config, credentials, service } = self;
+        let Builder {
+            config,
+            credentials,
+            service,
+        } = self;
         let credentials = match credentials {
             Some(credentials) => credentials,
             None => Credentials::new().init().await?,
         };
-        Ok(GoogleAuthz { auth: Auth::new(credentials, config), service })
+        Ok(GoogleAuthz {
+            auth: Auth::new(credentials, config),
+            service,
+        })
     }
 }
 
@@ -84,13 +95,19 @@ impl GoogleAuthz<()> {
 
 impl<S: Clone> Clone for GoogleAuthz<S> {
     fn clone(&self) -> Self {
-        Self { auth: self.auth.clone(), service: self.service.clone() }
+        Self {
+            auth: self.auth.clone(),
+            service: self.service.clone(),
+        }
     }
 }
 
 impl<S: fmt::Debug> fmt::Debug for GoogleAuthz<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("GoogleAuthz").field("auth", &self.auth).field("service", &self.service).finish()
+        f.debug_struct("GoogleAuthz")
+            .field("auth", &self.auth)
+            .field("service", &self.service)
+            .finish()
     }
 }
 
@@ -101,7 +118,10 @@ where
     type Response = S::Response;
     type Error = ServiceError<S::Error>;
     #[allow(clippy::type_complexity)]
-    type Future = Either<MapErr<S::Future, fn(S::Error) -> Self::Error>, Ready<Result<Self::Response, Self::Error>>>;
+    type Future = Either<
+        MapErr<S::Future, fn(S::Error) -> Self::Error>,
+        Ready<Result<Self::Response, Self::Error>>,
+    >;
 
     fn poll_ready(&mut self, cx: &mut task::Context<'_>) -> Poll<Result<(), Self::Error>> {
         match self.auth.poll_ready(cx) {
@@ -148,7 +168,11 @@ mod test {
         }
 
         let credentials = Credentials::new().no_credentials().init().await.unwrap();
-        let svc = GoogleAuthz::new(Counter(0)).credentials(credentials).init().await.unwrap();
+        let svc = GoogleAuthz::new(Counter(0))
+            .credentials(credentials)
+            .init()
+            .await
+            .unwrap();
         assert_send(&svc);
         assert_sync(&svc);
     }
