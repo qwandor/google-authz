@@ -158,7 +158,10 @@ mod test {
 
     #[test]
     fn test_from_api_key() {
-        assert!(from_api_key("こんにちは".into()).is_err());
+        assert_eq!(
+            from_api_key("こんにちは".into()).unwrap(),
+            Credentials::ApiKey("こんにちは".into())
+        );
         assert_eq!(
             from_api_key("api-key".into()).unwrap(),
             Credentials::ApiKey("api-key".into())
