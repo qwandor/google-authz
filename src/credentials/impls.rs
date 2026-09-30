@@ -15,21 +15,19 @@ pub(super) fn from_api_key(key: String) -> crate::Result<Credentials> {
 /// - A JSON file whose path is specified by the `GOOGLE_APPLICATION_CREDENTIALS` environment variable.
 /// - A JSON file in a location known to the gcloud command-line tool.
 /// - On Google Compute Engine, it fetches credentials from the metadata server.
-pub(super) fn find_default(
+pub(super) async fn find_default(
     scopes: &'static [&'static str],
-) -> impl Future<Output = crate::Result<Credentials>> + 'static {
-    async move {
-        let credentials = if let Some(c) = from_env(scopes)? {
-            c
-        } else if let Some(c) = from_well_known_file(scopes)? {
-            c
-        } else if let Some(c) = from_metadata(None, scopes).await? {
-            c
-        } else {
-            return Err(crate::Error::CredentialsSource);
-        };
-        Ok(credentials)
-    }
+) -> crate::Result<Credentials> {
+    let credentials = if let Some(c) = from_env(scopes)? {
+        c
+    } else if let Some(c) = from_well_known_file(scopes)? {
+        c
+    } else if let Some(c) = from_metadata(None, scopes).await? {
+        c
+    } else {
+        return Err(crate::Error::CredentialsSource);
+    };
+    Ok(credentials)
 }
 
 pub(super) fn from_env(scopes: &'static [&'static str]) -> crate::Result<Option<Credentials>> {

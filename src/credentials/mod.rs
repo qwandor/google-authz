@@ -56,8 +56,10 @@ impl PartialEq for Metadata {
     }
 }
 
+#[derive(Default)]
 enum Source<'a> {
     None,
+    #[default]
     Default,
     ApiKey { key: String },
     Json { data: &'a [u8] },
@@ -65,11 +67,6 @@ enum Source<'a> {
     Metadata { account: Option<String> },
 }
 
-impl<'a> Default for Source<'a> {
-    fn default() -> Self {
-        Self::Default
-    }
-}
 
 pub struct Builder<'a> {
     scopes: &'static [&'static str],
