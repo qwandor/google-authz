@@ -71,6 +71,7 @@ impl Auth {
         }
     }
 
+    #[allow(clippy::result_large_err)]
     #[inline]
     pub fn call<B>(&self, req: Request<B>) -> crate::Result<Request<B>> {
         #[cfg(not(feature = "tonic"))]
@@ -86,6 +87,7 @@ impl Auth {
     }
 }
 
+#[allow(clippy::result_large_err)]
 #[inline]
 #[cfg(not(feature = "tonic"))]
 fn check_https(scheme: Option<&'_ str>) -> crate::Result<()> {

@@ -5,6 +5,7 @@ use tracing::trace;
 
 use crate::credentials::{Credentials, Metadata, ServiceAccount, User};
 
+#[allow(clippy::result_large_err)]
 pub(super) fn from_api_key(key: String) -> crate::Result<Credentials> {
     let part = PathAndQuery::try_from(&format!("?{}", key)).map_err(crate::Error::ApiKeyFormat)?;
     assert_eq!(part.query().unwrap_or_default(), &key);
@@ -15,9 +16,8 @@ pub(super) fn from_api_key(key: String) -> crate::Result<Credentials> {
 /// - A JSON file whose path is specified by the `GOOGLE_APPLICATION_CREDENTIALS` environment variable.
 /// - A JSON file in a location known to the gcloud command-line tool.
 /// - On Google Compute Engine, it fetches credentials from the metadata server.
-pub(super) async fn find_default(
-    scopes: &'static [&'static str],
-) -> crate::Result<Credentials> {
+#[allow(clippy::result_large_err)]
+pub(super) async fn find_default(scopes: &'static [&'static str]) -> crate::Result<Credentials> {
     let credentials = if let Some(c) = from_env(scopes)? {
         c
     } else if let Some(c) = from_well_known_file(scopes)? {
@@ -30,6 +30,7 @@ pub(super) async fn find_default(
     Ok(credentials)
 }
 
+#[allow(clippy::result_large_err)]
 pub(super) fn from_env(scopes: &'static [&'static str]) -> crate::Result<Option<Credentials>> {
     const NAME: &str = "GOOGLE_APPLICATION_CREDENTIALS";
     trace!("try getting `{}` from environment variable", NAME);
@@ -42,6 +43,7 @@ pub(super) fn from_env(scopes: &'static [&'static str]) -> crate::Result<Option<
     }
 }
 
+#[allow(clippy::result_large_err)]
 pub(super) fn from_well_known_file(
     scopes: &'static [&'static str],
 ) -> crate::Result<Option<Credentials>> {
@@ -73,6 +75,7 @@ pub(super) fn from_well_known_file(
     }
 }
 
+#[allow(clippy::result_large_err)]
 pub(super) fn from_json_file(
     path: impl AsRef<Path>,
     scopes: &'static [&'static str],
@@ -82,6 +85,7 @@ pub(super) fn from_json_file(
     from_json(json.as_bytes(), scopes)
 }
 
+#[allow(clippy::result_large_err)]
 pub(super) fn from_json(
     json: &[u8],
     scopes: &'static [&'static str],
@@ -119,6 +123,7 @@ pub(super) fn from_json(
     })
 }
 
+#[allow(clippy::result_large_err)]
 pub(super) fn from_metadata(
     account: Option<String>,
     scopes: &'static [&'static str],

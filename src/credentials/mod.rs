@@ -61,12 +61,19 @@ enum Source<'a> {
     None,
     #[default]
     Default,
-    ApiKey { key: String },
-    Json { data: &'a [u8] },
-    JsonFile { path: &'a Path },
-    Metadata { account: Option<String> },
+    ApiKey {
+        key: String,
+    },
+    Json {
+        data: &'a [u8],
+    },
+    JsonFile {
+        path: &'a Path,
+    },
+    Metadata {
+        account: Option<String>,
+    },
 }
-
 
 pub struct Builder<'a> {
     scopes: &'static [&'static str],
@@ -125,6 +132,7 @@ impl<'a> Builder<'a> {
         self
     }
 
+    #[allow(clippy::result_large_err)]
     pub async fn init(self) -> crate::Result<Credentials> {
         match self.source {
             Source::None => Ok(Credentials::None),

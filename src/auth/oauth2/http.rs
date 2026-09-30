@@ -44,6 +44,7 @@ impl Client {
         req.body(body).unwrap()
     }
 
+    #[allow(clippy::result_large_err)]
     pub fn send<T>(
         &self,
         req: Request<Full<Bytes>>,

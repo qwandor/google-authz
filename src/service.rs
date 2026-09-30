@@ -61,6 +61,7 @@ impl<S> Builder<S> {
         self
     }
 
+    #[allow(clippy::result_large_err)]
     pub async fn init<B>(self) -> crate::Result<GoogleAuthz<S>>
     where
         S: tower_service::Service<Request<B>>,
