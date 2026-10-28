@@ -18,7 +18,7 @@ members = ["authz-examples"]
 [dependencies]
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 thiserror = "2.0.19"
-parking_lot = "0.12"
+parking_lot = "0.13"
 futures-util = "0.3"
 bytes = "1.7"
 serde = { version = "1.0", features = ["derive"] }
